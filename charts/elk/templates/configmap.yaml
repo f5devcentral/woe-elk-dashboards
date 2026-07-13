@@ -53,7 +53,7 @@ data:
 
     # Wait for Kibana to be ready
     echo "Waiting for Kibana to be ready..."
-    until curl -s "${KIBANA_URL}/api/status" | grep -q '"state":"green"'; do
+    until curl -s "${KIBANA_URL}/api/status" | grep -qE '"state":"green"|"level":"available"'; do
       echo "  Kibana not ready yet, retrying in 10s..."
       sleep 10
     done
