@@ -11,7 +11,9 @@ and adds WAF-specific configuration via ConfigMaps:
   into `waf-logs-YYYY.MM.dd`
 - **Elasticsearch index template** -- proper field mappings for WAF log fields
   including `ip` and `geo_point` types
-- **Kibana setup** -- creates the `waf-logs-*` index pattern automatically
+- **Kibana dashboards** -- two pre-built dashboards (Overview and False Positives)
+  with 15+ visualizations are automatically imported on startup via a sidecar
+  container
 
 > **Community-supported, best-effort.**
 > This repository contains community-contributed Helm charts that wrap
@@ -23,6 +25,7 @@ and adds WAF-specific configuration via ConfigMaps:
 - Kubernetes 1.25+
 - Helm 3.8+
 - At least 2 GiB of allocatable memory on the target node
+- Privileged init containers must be allowed (required for `vm.max_map_count` sysctl)
 
 ## Quick Start
 
@@ -38,8 +41,12 @@ helm install elk woe-elk/elk -n f5-waf --create-namespace
 ELK takes 60-120 seconds to fully start. Monitor readiness:
 
 ```sh
-kubectl get pods -n f5-waf -l app=elk -w
+kubectl get pods -n f5-waf -l app.kubernetes.io/name=elk -w
 ```
+
+Once the pod shows `2/2 Running`, both ELK and the dashboard importer sidecar
+are healthy. The sidecar waits for Kibana to become available, then creates the
+`waf-logs-*` index pattern and imports the bundled dashboards.
 
 ## Install with Gateway Integration
 
@@ -78,11 +85,12 @@ helm install elk woe-elk/elk -n f5-waf \
 | Parameter | Default | Description |
 |---|---|---|
 | `image.repository` | `sebp/elk` | Container image |
-| `image.tag` | `8.16.1` | Image tag (defaults to `appVersion`) |
+| `image.tag` | `""` | Image tag (defaults to `appVersion`: `8.17.8`) |
 | `elasticsearch.javaOpts` | `-Xms1g -Xmx1g` | ES JVM heap settings |
 | `logstash.javaOpts` | `-Xms512m -Xmx512m` | Logstash JVM heap settings |
 | `logstash.pipeline` | `""` | Override the bundled WAF Logstash pipeline |
-| `kibana.importDashboards` | `true` | Create waf-logs index pattern in Kibana |
+| `kibana.importDashboards` | `true` | Deploy sidecar to import dashboards and create index pattern |
+| `kibana.sidecar.image` | `curlimages/curl:8.11.1` | Container image for the dashboard importer sidecar |
 | `service.type` | `ClusterIP` | Service type |
 | `service.elasticsearch` | `9200` | Elasticsearch port |
 | `service.kibana` | `5601` | Kibana port |
@@ -97,16 +105,49 @@ helm install elk woe-elk/elk -n f5-waf \
 
 ## Bundled WAF Configuration
 
+### Kibana Dashboards
+
+The chart bundles two Kibana dashboards that are automatically imported on
+startup by a sidecar container:
+
+**Overview Dashboard** (10 visualizations):
+- Requests Rate (time series)
+- Requests Distribution (donut: clean / blocked / alerted)
+- Response Codes Rate and Distribution
+- Top Talkers, Top URLs, Top Violator IPs
+- Signatures Distribution, Violations Distribution
+- GEO map (source IP geolocation)
+- All Requests saved search
+
+**False Positives Dashboard** (5 visualizations):
+- Interpretation guide (how to read the graphs)
+- Rate of Unique IPs per Violation (time series)
+- Rate of Unique IPs per Signature (time series)
+- Violations Stats Table (violation name, unique IPs, hit count, outcome)
+- Signatures Stats Table
+
+The dashboards are stored as Kibana NDJSON exports in `files/dashboards/` and
+mounted into the pod via a ConfigMap. The sidecar uses the Kibana saved objects
+`_import` API with `overwrite=true`, so dashboards are re-applied on every pod
+restart.
+
+To disable dashboard import:
+
+```sh
+helm install elk woe-elk/elk -n f5-waf --set kibana.importDashboards=false
+```
+
 ### Logstash Pipeline
 
 The chart includes a Logstash pipeline (`files/logstash-waf.conf`) that:
 
 1. Listens for syslog on port 5144
 2. Parses WAF security log fields using grok (attack_type, violations,
-   signatures, policy_name, request_status, etc.)
+   signatures, policy_name, request_status, bot fields, gRPC fields, etc.)
 3. Parses XML violation details
 4. Splits multi-value fields (sig_ids, sig_names, violations, etc.)
-5. Resolves GeoIP from client IP
+5. Resolves GeoIP from client IP (with ECS compatibility disabled for
+   legacy field name compatibility)
 6. Writes to daily `waf-logs-YYYY.MM.dd` indices
 
 To override with a custom pipeline:
@@ -126,6 +167,22 @@ post-install Job that:
 - Maps security fields (attack_type, violations, etc.) as `keyword` for
   aggregations
 - Sets single shard, zero replicas (appropriate for single-node)
+
+### Init Container
+
+The chart includes a privileged init container that sets
+`vm.max_map_count=262144`, which is required by Elasticsearch. Without this,
+Elasticsearch will fail the bootstrap check and exit.
+
+## Architecture
+
+The Deployment runs three containers:
+
+| Container | Image | Purpose |
+|---|---|---|
+| `elk` | `sebp/elk:8.17.8` | All-in-one Elasticsearch + Logstash + Kibana |
+| `import-dashboards` | `curlimages/curl:8.11.1` | Sidecar: waits for Kibana, imports dashboards, then sleeps |
+| `sysctl` (init) | `busybox` | Sets `vm.max_map_count=262144` before ES starts |
 
 ## Connecting WAF on Envoy UI
 
