@@ -41,10 +41,14 @@ logstash:
   pipeline: ""
 
 ## Kibana settings
-## @param kibana.importDashboards run a post-install Job to create the waf-logs
-##   index pattern and import dashboards (if files/waf-dashboards.ndjson exists)
+## @param kibana.importDashboards deploy a sidecar container that creates the
+##   waf-logs-* index pattern and imports bundled Kibana dashboards (Overview
+##   and False Positives) on every pod start.
+## @param kibana.sidecar.image container image for the dashboard importer sidecar
 kibana:
   importDashboards: true
+  sidecar:
+    image: "curlimages/curl:8.11.1"
 
 ## Service parameters
 service:

@@ -81,6 +81,28 @@ spec:
         - name: elk-data
           mountPath: /var/lib/elasticsearch
         {{- end }}
+        {{- if .Values.kibana.importDashboards }}
+        - name: kibana-dashboards
+          mountPath: /kibana-dashboards
+          readOnly: true
+        {{- end }}
+      {{- if .Values.kibana.importDashboards }}
+      - name: import-dashboards
+        image: {{ .Values.kibana.sidecar.image | default "curlimages/curl:8.11.1" }}
+        imagePullPolicy: IfNotPresent
+        command:
+        - sh
+        - /import-dashboards.sh
+        volumeMounts:
+        - name: kibana-dashboards
+          mountPath: /kibana-dashboards
+          readOnly: true
+        - name: import-dashboards-script
+          mountPath: /import-dashboards.sh
+          subPath: import-dashboards.sh
+          readOnly: true
+      {{- end }}
+      terminationGracePeriodSeconds: 0
       volumes:
       - name: logstash-pipeline
         configMap:
@@ -89,6 +111,14 @@ spec:
       - name: elk-data
         persistentVolumeClaim:
           claimName: {{ include "elk.fullname" . }}-data
+      {{- end }}
+      {{- if .Values.kibana.importDashboards }}
+      - name: kibana-dashboards
+        configMap:
+          name: {{ include "elk.fullname" . }}-dashboards
+      - name: import-dashboards-script
+        configMap:
+          name: {{ include "elk.fullname" . }}-import-dashboards
       {{- end }}
       {{- with .Values.nodeSelector }}
       nodeSelector:

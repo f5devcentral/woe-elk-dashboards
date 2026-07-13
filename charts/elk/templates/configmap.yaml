@@ -23,3 +23,69 @@ metadata:
 data:
   waf-index-template.json: |
     {{- .Files.Get "files/waf-index-template.json" | nindent 4 }}
+{{- if .Values.kibana.importDashboards }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "elk.fullname" . }}-dashboards
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "elk.labels" . | nindent 4 }}
+data:
+  {{- range $path, $_ := .Files.Glob "files/dashboards/*.ndjson" }}
+  {{ $path | base }}: |
+    {{- $.Files.Get $path | nindent 4 }}
+  {{- end }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "elk.fullname" . }}-import-dashboards
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "elk.labels" . | nindent 4 }}
+data:
+  import-dashboards.sh: |
+    #!/bin/sh
+    KIBANA_URL="http://localhost:5601"
+    DASHBOARD_DIR="/kibana-dashboards"
+
+    # Wait for Kibana to be ready
+    echo "Waiting for Kibana to be ready..."
+    until curl -s "${KIBANA_URL}/api/status" | grep -q '"state":"green"'; do
+      echo "  Kibana not ready yet, retrying in 10s..."
+      sleep 10
+    done
+    echo "Kibana is ready."
+
+    # Create index pattern
+    echo "Creating waf-logs-* index pattern..."
+    curl -s -X POST "${KIBANA_URL}/api/saved_objects/index-pattern/waf-logs" \
+      -H "kbn-xsrf: true" \
+      -H "Content-Type: application/json" \
+      -d '{"attributes":{"title":"waf-logs-*","timeFieldName":"@timestamp"}}' \
+      || echo "  (index pattern may already exist)"
+
+    # Set as default index pattern
+    echo "Setting waf-logs as default index pattern..."
+    curl -s -X POST "${KIBANA_URL}/api/kibana/settings" \
+      -H "kbn-xsrf: true" \
+      -H "Content-Type: application/json" \
+      -d '{"changes":{"defaultIndex":"waf-logs"}}' \
+      || echo "  (failed to set default, non-fatal)"
+
+    # Import all dashboard ndjson files
+    for f in "${DASHBOARD_DIR}"/*.ndjson; do
+      [ -f "$f" ] || continue
+      echo "Importing $(basename "$f") into Kibana..."
+      curl -s -X POST "${KIBANA_URL}/api/saved_objects/_import?overwrite=true" \
+        -H "kbn-xsrf: true" \
+        --form file=@"$f"
+      echo ""
+    done
+
+    echo "Dashboard import complete. Sleeping."
+    # Keep alive to prevent CrashLoopBackOff
+    sleep infinity
+{{- end }}
