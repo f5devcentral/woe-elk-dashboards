@@ -1,0 +1,25 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "elk.fullname" . }}-logstash
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "elk.labels" . | nindent 4 }}
+data:
+  30-waf-logs.conf: |
+    {{- if .Values.logstash.pipeline }}
+    {{- .Values.logstash.pipeline | nindent 4 }}
+    {{- else }}
+    {{- .Files.Get "files/logstash-waf.conf" | nindent 4 }}
+    {{- end }}
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "elk.fullname" . }}-es-template
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "elk.labels" . | nindent 4 }}
+data:
+  waf-index-template.json: |
+    {{- .Files.Get "files/waf-index-template.json" | nindent 4 }}

@@ -1,0 +1,36 @@
+ELK stack has been deployed to namespace {{ .Release.Namespace }}.
+
+Services:
+  Elasticsearch: {{ include "elk.fullname" . }}.{{ .Release.Namespace }}.svc.cluster.local:{{ .Values.service.elasticsearch }}
+  Kibana:        {{ include "elk.fullname" . }}.{{ .Release.Namespace }}.svc.cluster.local:{{ .Values.service.kibana }}
+  Logstash:      {{ include "elk.fullname" . }}.{{ .Release.Namespace }}.svc.cluster.local:{{ .Values.service.logstash }}
+  Syslog input:  {{ include "elk.fullname" . }}.{{ .Release.Namespace }}.svc.cluster.local:{{ .Values.service.syslog }}
+
+Bundled configuration:
+  - Logstash pipeline: WAF syslog parser on port {{ .Values.service.syslog }} → waf-logs-* index
+  - ES index template: applied via post-install Job (field mappings + GeoIP)
+{{- if .Values.kibana.importDashboards }}
+  - Kibana: waf-logs-* index pattern created via post-install Job
+{{- end }}
+
+{{- if .Values.gateway.enabled }}
+
+Gateway integration:
+  The post-install Job will patch gateway "{{ .Values.gateway.name }}" to add
+  listener "{{ .Values.gateway.listenerName }}" on port {{ .Values.gateway.listenerPort }}.
+  Elasticsearch will be reachable at http://<GATEWAY_IP>:{{ .Values.gateway.listenerPort }}
+
+  Verify:
+    GW_IP=$(kubectl get gateway {{ .Values.gateway.name }} -n {{ .Release.Namespace }} -o jsonpath='{.status.addresses[0].value}')
+    curl "http://${GW_IP}:{{ .Values.gateway.listenerPort }}/"
+{{- end }}
+
+NOTE: ELK takes 60-120 seconds to fully start. Monitor readiness:
+  kubectl get pods -n {{ .Release.Namespace }} -l app.kubernetes.io/instance={{ .Release.Name }} -w
+
+To configure woe-ui to use this Elasticsearch:
+  In the UI Settings > Server Configuration, set ES URL to:
+  http://{{ include "elk.fullname" . }}.{{ .Release.Namespace }}.svc.cluster.local:{{ .Values.service.elasticsearch }}
+{{- if .Values.gateway.enabled }}
+  (or http://<GATEWAY_IP>:{{ .Values.gateway.listenerPort }} if accessing cross-cluster)
+{{- end }}

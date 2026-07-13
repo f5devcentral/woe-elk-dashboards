@@ -1,0 +1,60 @@
+{
+  "index_patterns": ["waf-logs-*"],
+  "settings": {
+    "number_of_shards": 1,
+    "number_of_replicas": 0
+  },
+  "mappings": {
+    "properties": {
+      "@timestamp":                { "type": "date" },
+      "attack_type":               { "type": "keyword" },
+      "blocking_exception_reason": { "type": "keyword" },
+      "bot_anomalies":             { "type": "keyword" },
+      "bot_category":              { "type": "keyword" },
+      "bot_signature_name":        { "type": "keyword" },
+      "client_application":        { "type": "keyword" },
+      "client_application_version":{ "type": "keyword" },
+      "client_class":              { "type": "keyword" },
+      "date_time":                 { "type": "keyword" },
+      "dest_port":                 { "type": "keyword" },
+      "enforced_bot_anomalies":    { "type": "keyword" },
+      "grpc_method":               { "type": "keyword" },
+      "grpc_service":              { "type": "keyword" },
+      "ip_client":                 { "type": "ip" },
+      "is_truncated":              { "type": "keyword" },
+      "method":                    { "type": "keyword" },
+      "outcome":                   { "type": "keyword" },
+      "outcome_reason":            { "type": "keyword" },
+      "policy_name":               { "type": "keyword" },
+      "protocol":                  { "type": "keyword" },
+      "request_status":            { "type": "keyword" },
+      "request":                   { "type": "text", "fields": { "keyword": { "type": "keyword", "ignore_above": 2048 }}},
+      "request_body_base64":       { "type": "text" },
+      "response_code":             { "type": "keyword" },
+      "severity":                  { "type": "keyword" },
+      "sig_cves":                  { "type": "keyword" },
+      "sig_ids":                   { "type": "keyword" },
+      "sig_names":                 { "type": "keyword" },
+      "sig_set_names":             { "type": "keyword" },
+      "src_port":                  { "type": "keyword" },
+      "sub_violations":            { "type": "keyword" },
+      "support_id":                { "type": "keyword" },
+      "unit_hostname":             { "type": "keyword" },
+      "uri":                       { "type": "keyword" },
+      "violations":                { "type": "keyword" },
+      "violation_rating":          { "type": "keyword" },
+      "vs_name":                   { "type": "keyword" },
+      "x_forwarded_for_header_value": { "type": "keyword" },
+      "source_host":               { "type": "ip" },
+      "geoip": {
+        "properties": {
+          "location":              { "type": "geo_point" },
+          "country_name":          { "type": "keyword" },
+          "city_name":             { "type": "keyword" },
+          "region_name":           { "type": "keyword" },
+          "country_code2":         { "type": "keyword" }
+        }
+      }
+    }
+  }
+}

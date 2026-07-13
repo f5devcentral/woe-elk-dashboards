@@ -1,0 +1,104 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "elk.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "elk.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  strategy:
+    type: Recreate
+  selector:
+    matchLabels:
+      {{- include "elk.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "elk.selectorLabels" . | nindent 8 }}
+    spec:
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.securityContext }}
+      securityContext:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+      - name: elk
+        image: {{ include "elk.image" . }}
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+        ports:
+        - containerPort: 9200
+          name: elasticsearch
+          protocol: TCP
+        - containerPort: 5601
+          name: kibana
+          protocol: TCP
+        - containerPort: 5044
+          name: logstash
+          protocol: TCP
+        - containerPort: 5144
+          name: syslog
+          protocol: TCP
+        env:
+        - name: ES_JAVA_OPTS
+          value: {{ .Values.elasticsearch.javaOpts | quote }}
+        - name: LS_JAVA_OPTS
+          value: {{ .Values.logstash.javaOpts | quote }}
+        {{- if .Values.readinessProbe.enabled }}
+        readinessProbe:
+          httpGet:
+            path: /_cluster/health?local=true
+            port: elasticsearch
+          initialDelaySeconds: {{ .Values.readinessProbe.initialDelaySeconds }}
+          periodSeconds: {{ .Values.readinessProbe.periodSeconds }}
+          timeoutSeconds: {{ .Values.readinessProbe.timeoutSeconds }}
+          failureThreshold: {{ .Values.readinessProbe.failureThreshold }}
+          successThreshold: {{ .Values.readinessProbe.successThreshold }}
+        {{- end }}
+        {{- if .Values.livenessProbe.enabled }}
+        livenessProbe:
+          httpGet:
+            path: /_cluster/health?local=true
+            port: elasticsearch
+          initialDelaySeconds: {{ .Values.livenessProbe.initialDelaySeconds }}
+          periodSeconds: {{ .Values.livenessProbe.periodSeconds }}
+          timeoutSeconds: {{ .Values.livenessProbe.timeoutSeconds }}
+          failureThreshold: {{ .Values.livenessProbe.failureThreshold }}
+          successThreshold: {{ .Values.livenessProbe.successThreshold }}
+        {{- end }}
+        {{- with .Values.resources }}
+        resources:
+          {{- toYaml . | nindent 10 }}
+        {{- end }}
+        volumeMounts:
+        - name: logstash-pipeline
+          mountPath: /etc/logstash/conf.d/30-waf-logs.conf
+          subPath: 30-waf-logs.conf
+        {{- if .Values.persistence.enabled }}
+        - name: elk-data
+          mountPath: /var/lib/elasticsearch
+        {{- end }}
+      volumes:
+      - name: logstash-pipeline
+        configMap:
+          name: {{ include "elk.fullname" . }}-logstash
+      {{- if .Values.persistence.enabled }}
+      - name: elk-data
+        persistentVolumeClaim:
+          claimName: {{ include "elk.fullname" . }}-data
+      {{- end }}
+      {{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.tolerations }}
+      tolerations:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      {{- with .Values.affinity }}
+      affinity:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}

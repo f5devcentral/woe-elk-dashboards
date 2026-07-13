@@ -1,0 +1,119 @@
+# Default values for ELK all-in-one.
+
+###########################################
+# ELK Configuration
+###########################################
+
+## @param nameOverride Override the app name (used in labels and default fullname).
+nameOverride: ""
+## @param fullnameOverride Override the full resource name (Service, Deployment, etc.)
+fullnameOverride: ""
+## @param replicaCount Number of ELK instances (should be 1 for all-in-one)
+replicaCount: 1
+
+## Reference to one or more secrets to be used when pulling images
+imagePullSecrets: []
+# - name: "dockerhub-secret"
+
+## ELK image (sebp/elk all-in-one)
+## @param image.repository full image repository
+## @param image.tag image tag
+## @param image.pullPolicy image pull policy
+image:
+  repository: sebp/elk
+  tag: ""  # defaults to appVersion
+  pullPolicy: IfNotPresent
+
+## Elasticsearch JVM heap settings
+## @param elasticsearch.javaOpts JVM options for Elasticsearch
+elasticsearch:
+  javaOpts: "-Xms1g -Xmx1g"
+
+## Logstash settings
+## @param logstash.javaOpts JVM options for Logstash
+## @param logstash.pipeline custom Logstash pipeline config override
+logstash:
+  javaOpts: "-Xms512m -Xmx512m"
+  ## Override the bundled WAF syslog pipeline (files/logstash-waf.conf).
+  ## If empty, the bundled pipeline is used — it parses WAF syslog on port
+  ## 5144, extracts fields (attack_type, violations, GeoIP, etc.), and
+  ## writes to the waf-logs-YYYY.MM.dd index.
+  pipeline: ""
+
+## Kibana settings
+## @param kibana.importDashboards run a post-install Job to create the waf-logs
+##   index pattern and import dashboards (if files/waf-dashboards.ndjson exists)
+kibana:
+  importDashboards: true
+
+## Service parameters
+service:
+  type: ClusterIP
+  ## Ports exposed by the Service
+  elasticsearch: 9200
+  kibana: 5601
+  logstash: 5044
+  ## Syslog port for WAF log ingestion
+  syslog: 5144
+
+## Gateway integration — expose Elasticsearch through the PLM Envoy gateway.
+## When enabled, creates an HTTPRoute and a post-install Job that patches
+## the gateway to add an Elasticsearch listener.
+##
+## @param gateway.enabled create HTTPRoute and patch the gateway
+## @param gateway.name name of the existing Gateway resource to attach to
+## @param gateway.listenerName name for the new listener section
+## @param gateway.listenerPort port for the new listener (Elasticsearch)
+## @param gateway.kubectl.image kubectl image for the gateway-patch Job
+gateway:
+  enabled: false
+  name: "woe-plm-envoy"
+  listenerName: "elasticsearch"
+  listenerPort: 9200
+  kubectl:
+    image: "f5networks/woe-internal-kubectl:3.22-1.34.8"
+
+## Persistence — ELK data storage
+## @param persistence.enabled enable PersistentVolumeClaim for ES data
+## @param persistence.size PVC size
+## @param persistence.storageClass storage class (empty = default)
+persistence:
+  enabled: false
+  size: 10Gi
+  storageClass: ""
+
+## Resource requests and limits
+resources:
+  requests:
+    memory: 2Gi
+    cpu: 500m
+  limits:
+    memory: 4Gi
+    cpu: "2"
+
+## Pod-level security context
+## Note: sebp/elk runs internal processes as various users; avoid runAsNonRoot.
+securityContext: {}
+
+## Readiness probe — wait for Elasticsearch to be ready
+readinessProbe:
+  enabled: true
+  initialDelaySeconds: 60
+  periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 12
+  successThreshold: 1
+
+## Liveness probe
+livenessProbe:
+  enabled: true
+  initialDelaySeconds: 120
+  periodSeconds: 30
+  timeoutSeconds: 10
+  failureThreshold: 5
+  successThreshold: 1
+
+## Node selector, tolerations, affinity
+nodeSelector: {}
+tolerations: []
+affinity: {}

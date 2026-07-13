@@ -1,0 +1,28 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "elk.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "elk.labels" . | nindent 4 }}
+spec:
+  type: {{ .Values.service.type }}
+  selector:
+    {{- include "elk.selectorLabels" . | nindent 4 }}
+  ports:
+  - name: elasticsearch
+    port: {{ .Values.service.elasticsearch }}
+    targetPort: 9200
+    protocol: TCP
+  - name: kibana
+    port: {{ .Values.service.kibana }}
+    targetPort: 5601
+    protocol: TCP
+  - name: logstash
+    port: {{ .Values.service.logstash }}
+    targetPort: 5044
+    protocol: TCP
+  - name: syslog
+    port: {{ .Values.service.syslog }}
+    targetPort: 5144
+    protocol: TCP

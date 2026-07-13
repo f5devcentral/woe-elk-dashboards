@@ -1,0 +1,95 @@
+{{- if .Values.gateway.enabled }}
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "elk.fullname" . }}-gw-patch
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "elk.labels" . | nindent 4 }}
+  annotations:
+    helm.sh/hook: post-install,post-upgrade
+    helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
+    helm.sh/hook-weight: "0"
+spec:
+  backoffLimit: 3
+  template:
+    metadata:
+      labels:
+        {{- include "elk.selectorLabels" . | nindent 8 }}
+    spec:
+      restartPolicy: OnFailure
+      serviceAccountName: {{ include "elk.fullname" . }}-gw-patch
+      {{- with .Values.imagePullSecrets }}
+      imagePullSecrets:
+        {{- toYaml . | nindent 8 }}
+      {{- end }}
+      containers:
+      - name: patch
+        image: {{ .Values.gateway.kubectl.image }}
+        command:
+        - /bin/sh
+        - -c
+        - |
+          set -e
+          GATEWAY="{{ .Values.gateway.name }}"
+          NS="{{ .Release.Namespace }}"
+          LISTENER="{{ .Values.gateway.listenerName }}"
+          PORT={{ .Values.gateway.listenerPort }}
+
+          # Check if the listener already exists
+          EXISTING=$(kubectl get gateway "$GATEWAY" -n "$NS" -o jsonpath="{.spec.listeners[?(@.name=='$LISTENER')].name}" 2>/dev/null || true)
+          if [ -n "$EXISTING" ]; then
+            echo "Listener '$LISTENER' already exists on gateway '$GATEWAY' — skipping patch."
+            exit 0
+          fi
+
+          echo "Adding listener '$LISTENER' (port $PORT) to gateway '$GATEWAY'..."
+          kubectl patch gateway "$GATEWAY" -n "$NS" --type=json \
+            -p "[{\"op\":\"add\",\"path\":\"/spec/listeners/-\",\"value\":{\"name\":\"$LISTENER\",\"protocol\":\"HTTP\",\"port\":$PORT,\"allowedRoutes\":{\"namespaces\":{\"from\":\"Same\"}}}}]"
+          echo "Done."
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: {{ include "elk.fullname" . }}-gw-patch
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "elk.labels" . | nindent 4 }}
+  annotations:
+    helm.sh/hook: post-install,post-upgrade
+    helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: {{ include "elk.fullname" . }}-gw-patch
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "elk.labels" . | nindent 4 }}
+  annotations:
+    helm.sh/hook: post-install,post-upgrade
+    helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
+rules:
+- apiGroups: ["gateway.networking.k8s.io"]
+  resources: ["gateways"]
+  verbs: ["get", "patch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: {{ include "elk.fullname" . }}-gw-patch
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "elk.labels" . | nindent 4 }}
+  annotations:
+    helm.sh/hook: post-install,post-upgrade
+    helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
+subjects:
+- kind: ServiceAccount
+  name: {{ include "elk.fullname" . }}-gw-patch
+  namespace: {{ .Release.Namespace }}
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: {{ include "elk.fullname" . }}-gw-patch
+{{- end }}

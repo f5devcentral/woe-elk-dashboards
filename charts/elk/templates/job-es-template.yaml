@@ -1,0 +1,49 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: {{ include "elk.fullname" . }}-es-setup
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "elk.labels" . | nindent 4 }}
+  annotations:
+    helm.sh/hook: post-install,post-upgrade
+    helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
+    helm.sh/hook-weight: "5"
+spec:
+  backoffLimit: 10
+  template:
+    metadata:
+      labels:
+        {{- include "elk.selectorLabels" . | nindent 8 }}
+    spec:
+      restartPolicy: OnFailure
+      containers:
+      - name: es-setup
+        image: curlimages/curl:8.11.1
+        command:
+        - /bin/sh
+        - -c
+        - |
+          set -e
+          ES_URL="http://{{ include "elk.fullname" . }}.{{ .Release.Namespace }}.svc.cluster.local:{{ .Values.service.elasticsearch }}"
+
+          echo "Waiting for Elasticsearch to be ready..."
+          until curl -sf "${ES_URL}/_cluster/health?wait_for_status=yellow&timeout=5s" >/dev/null 2>&1; do
+            echo "  ES not ready yet, retrying in 10s..."
+            sleep 10
+          done
+          echo "Elasticsearch is ready."
+
+          echo "Applying waf-logs index template..."
+          curl -sf -X PUT "${ES_URL}/_template/waf-logs" \
+            -H "Content-Type: application/json" \
+            -d @/config/waf-index-template.json
+          echo ""
+          echo "Index template applied."
+        volumeMounts:
+        - name: es-template
+          mountPath: /config
+      volumes:
+      - name: es-template
+        configMap:
+          name: {{ include "elk.fullname" . }}-es-template
