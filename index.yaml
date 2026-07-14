@@ -3,6 +3,19 @@ entries:
   elk:
   - apiVersion: v2
     appVersion: 8.17.8
+    created: "2026-07-14T16:54:55.767648957Z"
+    description: All-in-one ELK stack (Elasticsearch + Logstash + Kibana) for WAF
+      security log aggregation on PLM clusters
+    digest: ef0d6d2b9aa4cd923383dfe9f8601e3f268b33fbc0d8b54af8cf1ce094da5a12
+    home: https://www.f5.com/
+    kubeVersion: '>= 1.25.0'
+    name: elk
+    type: application
+    urls:
+    - https://github.com/f5devcentral/woe-elk-dashboards/releases/download/elk-0.2.8/elk-0.2.8.tgz
+    version: 0.2.8
+  - apiVersion: v2
+    appVersion: 8.17.8
     created: "2026-07-14T16:46:58.035302364Z"
     description: All-in-one ELK stack (Elasticsearch + Logstash + Kibana) for WAF
       security log aggregation on PLM clusters
@@ -118,4 +131,4 @@ entries:
     urls:
     - https://github.com/f5devcentral/woe-elk-dashboards/releases/download/elk-0.1.1/elk-0.1.1.tgz
     version: 0.1.1
-generated: "2026-07-14T16:46:58.03535371Z"
+generated: "2026-07-14T16:54:55.767685161Z"
