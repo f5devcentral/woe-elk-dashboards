@@ -1,4 +1,37 @@
 {{- if .Values.gateway.enabled }}
+{{/*
+Gateway listener manifest, mounted into the patch Job. The Job applies this
+with server-side apply. Because Gateway `spec.listeners` is a list-type=map
+keyed by `name`, SSA merges just this one listener into the existing gateway
+without clobbering the other listeners (kibana, syslog, ...) and is fully
+idempotent across re-runs (post-install AND post-upgrade).
+*/}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "elk.fullname" . }}-gw-listener
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "elk.labels" . | nindent 4 }}
+  annotations:
+    helm.sh/hook: post-install,post-upgrade
+    helm.sh/hook-delete-policy: before-hook-creation,hook-succeeded
+data:
+  listener.yaml: |
+    apiVersion: gateway.networking.k8s.io/v1
+    kind: Gateway
+    metadata:
+      name: {{ .Values.gateway.name }}
+      namespace: {{ .Release.Namespace }}
+    spec:
+      listeners:
+      - name: {{ .Values.gateway.listenerName }}
+        protocol: HTTP
+        port: {{ .Values.gateway.listenerPort }}
+        allowedRoutes:
+          namespaces:
+            from: Same
+---
 apiVersion: batch/v1
 kind: Job
 metadata:
@@ -26,27 +59,31 @@ spec:
       containers:
       - name: patch
         image: {{ .Values.gateway.kubectl.image }}
+        # Shell-free: apply the listener via server-side apply. The default
+        # image (registry.k8s.io/kubectl) is distroless and has no shell.
+        {{- with .Values.gateway.kubectl.command }}
         command:
-        - /bin/sh
-        - -c
-        - |
-          set -e
-          GATEWAY="{{ .Values.gateway.name }}"
-          NS="{{ .Release.Namespace }}"
-          LISTENER="{{ .Values.gateway.listenerName }}"
-          PORT={{ .Values.gateway.listenerPort }}
-
-          # Check if the listener already exists
-          EXISTING=$(kubectl get gateway "$GATEWAY" -n "$NS" -o jsonpath="{.spec.listeners[?(@.name=='$LISTENER')].name}" 2>/dev/null || true)
-          if [ -n "$EXISTING" ]; then
-            echo "Listener '$LISTENER' already exists on gateway '$GATEWAY' — skipping patch."
-            exit 0
-          fi
-
-          echo "Adding listener '$LISTENER' (port $PORT) to gateway '$GATEWAY'..."
-          kubectl patch gateway "$GATEWAY" -n "$NS" --type=json \
-            -p "[{\"op\":\"add\",\"path\":\"/spec/listeners/-\",\"value\":{\"name\":\"$LISTENER\",\"protocol\":\"HTTP\",\"port\":$PORT,\"allowedRoutes\":{\"namespaces\":{\"from\":\"Same\"}}}}]"
-          echo "Done."
+          {{- toYaml . | nindent 8 }}
+        {{- else }}
+        command: ["/bin/kubectl"]
+        {{- end }}
+        args:
+        - apply
+        - --server-side
+        - --force-conflicts
+        - --field-manager=elk-gw-patch
+        - -n
+        - {{ .Release.Namespace }}
+        - -f
+        - /manifests/listener.yaml
+        volumeMounts:
+        - name: gw-listener
+          mountPath: /manifests
+          readOnly: true
+      volumes:
+      - name: gw-listener
+        configMap:
+          name: {{ include "elk.fullname" . }}-gw-listener
 ---
 apiVersion: v1
 kind: ServiceAccount
