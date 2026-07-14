@@ -79,6 +79,18 @@ gateway:
   name: "woe-plm-envoy"
   listenerName: "elasticsearch"
   listenerPort: 9200
+  ## Syslog integration — expose the Logstash WAF syslog input (5144) through
+  ## the same gateway so WAF enforcers on other clusters can ship logs to this
+  ## ELK. Adds a TCP listener (SSA-merged into spec.listeners) and a TCPRoute.
+  ## Reachable at <GATEWAY_IP>:{{ .Values.gateway.syslog.listenerPort }}.
+  ##
+  ## @param gateway.syslog.enabled add the syslog TCP listener and TCPRoute
+  ## @param gateway.syslog.listenerName name for the new TCP listener section
+  ## @param gateway.syslog.listenerPort port for the syslog listener
+  syslog:
+    enabled: true
+    listenerName: "waf-syslog"
+    listenerPort: 5144
   kubectl:
     image: "registry.k8s.io/kubectl:v1.32.4"
 

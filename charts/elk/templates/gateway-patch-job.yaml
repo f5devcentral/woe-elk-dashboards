@@ -31,6 +31,16 @@ data:
         allowedRoutes:
           namespaces:
             from: Same
+      {{- if .Values.gateway.syslog.enabled }}
+      - name: {{ .Values.gateway.syslog.listenerName }}
+        protocol: TCP
+        port: {{ .Values.gateway.syslog.listenerPort }}
+        allowedRoutes:
+          kinds:
+          - kind: TCPRoute
+          namespaces:
+            from: Same
+      {{- end }}
 ---
 apiVersion: batch/v1
 kind: Job

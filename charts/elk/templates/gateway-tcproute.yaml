@@ -1,0 +1,17 @@
+{{- if and .Values.gateway.enabled .Values.gateway.syslog.enabled }}
+apiVersion: gateway.networking.k8s.io/v1alpha2
+kind: TCPRoute
+metadata:
+  name: {{ include "elk.fullname" . }}-syslog
+  namespace: {{ .Release.Namespace }}
+  labels:
+    {{- include "elk.labels" . | nindent 4 }}
+spec:
+  parentRefs:
+  - name: {{ .Values.gateway.name }}
+    sectionName: {{ .Values.gateway.syslog.listenerName }}
+  rules:
+  - backendRefs:
+    - name: {{ include "elk.fullname" . }}
+      port: {{ .Values.service.syslog }}
+{{- end }}
