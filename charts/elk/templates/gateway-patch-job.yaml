@@ -31,10 +31,11 @@ data:
         allowedRoutes:
           namespaces:
             from: Same
-      {{- if .Values.gateway.syslog.enabled }}
-      - name: {{ .Values.gateway.syslog.listenerName }}
+      {{- $syslog := .Values.gateway.syslog | default dict }}
+      {{- if $syslog.enabled }}
+      - name: {{ $syslog.listenerName | default "waf-syslog" }}
         protocol: TCP
-        port: {{ .Values.gateway.syslog.listenerPort }}
+        port: {{ $syslog.listenerPort | default 5144 }}
         allowedRoutes:
           kinds:
           - kind: TCPRoute
