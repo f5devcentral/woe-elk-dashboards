@@ -80,6 +80,10 @@ helm install elk woe-elk/elk -n f5-waf \
   --set persistence.size=20Gi
 ```
 
+An upgrade that changes the Logstash pipeline, index template or dashboards
+restarts the ELK pod so the change takes effect. Without persistence, that
+restart discards the Elasticsearch data.
+
 ## Configuration
 
 | Parameter | Default | Description |

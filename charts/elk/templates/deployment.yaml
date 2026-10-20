@@ -16,6 +16,10 @@ spec:
     metadata:
       labels:
         {{- include "elk.selectorLabels" . | nindent 8 }}
+      annotations:
+        # Restart the pod when the pipeline, index template or dashboards
+        # change; ConfigMap updates alone are not picked up by a running pod.
+        checksum/config: {{ include (print $.Template.BasePath "/configmap.yaml") . | sha256sum }}
     spec:
       {{- with .Values.imagePullSecrets }}
       imagePullSecrets:

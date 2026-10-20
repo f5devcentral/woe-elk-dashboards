@@ -21,6 +21,12 @@ jobs:
       - name: Lint chart
         run: helm lint charts/elk
 
+      - name: Pod restarts on config change
+        run: |
+          a=$(helm template t charts/elk | grep 'checksum/config:')
+          b=$(helm template t charts/elk --set logstash.pipeline=changed | grep 'checksum/config:')
+          test -n "$a" && test "$a" != "$b"
+
       - name: Unit tests
         run: ruby tests/source_host_test.rb
 
