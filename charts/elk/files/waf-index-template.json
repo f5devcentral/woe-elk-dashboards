@@ -20,7 +20,7 @@
       "enforced_bot_anomalies":    { "type": "keyword" },
       "grpc_method":               { "type": "keyword" },
       "grpc_service":              { "type": "keyword" },
-      "ip_client":                 { "type": "ip" },
+      "ip_client":                 { "type": "ip", "ignore_malformed": true },
       "is_truncated":              { "type": "keyword" },
       "method":                    { "type": "keyword" },
       "outcome":                   { "type": "keyword" },
@@ -45,7 +45,7 @@
       "violation_rating":          { "type": "keyword" },
       "vs_name":                   { "type": "keyword" },
       "x_forwarded_for_header_value": { "type": "keyword" },
-      "source_host":               { "type": "ip" },
+      "source_host":               { "type": "ip", "ignore_malformed": true },
       "geoip": {
         "properties": {
           "location":              { "type": "geo_point" },

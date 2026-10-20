@@ -1,0 +1,28 @@
+name: Test
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: v3.17.1
+
+      - name: Lint chart
+        run: helm lint charts/elk
+
+      - name: Unit tests
+        run: ruby tests/source_host_test.rb
+
+      - name: End-to-end (Logstash + Elasticsearch)
+        run: tests/e2e.sh

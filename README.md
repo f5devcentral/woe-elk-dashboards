@@ -146,9 +146,13 @@ The chart includes a Logstash pipeline (`files/logstash-waf.conf`) that:
    signatures, policy_name, request_status, bot fields, gRPC fields, etc.)
 3. Parses XML violation details
 4. Splits multi-value fields (sig_ids, sig_names, violations, etc.)
-5. Resolves GeoIP from client IP (with ECS compatibility disabled for
+5. Sets `source_host` to the client IP: the left-most valid address in
+   `X-Forwarded-For` (which may be a proxy chain such as
+   `client, proxy1, proxy2`), else `ip_client`; it is left unset when neither
+   is a valid IP. The full chain is kept in `x_forwarded_for_header_value`.
+6. Resolves GeoIP from `source_host` (with ECS compatibility disabled for
    legacy field name compatibility)
-6. Writes to daily `waf-logs-YYYY.MM.dd` indices
+7. Writes to daily `waf-logs-YYYY.MM.dd` indices
 
 To override with a custom pipeline:
 
@@ -162,7 +166,10 @@ helm install elk woe-elk/elk -n f5-waf \
 The chart applies an index template (`files/waf-index-template.json`) via a
 post-install Job that:
 
-- Maps `ip_client` and `source_host` as `ip` type
+- Maps `ip_client` and `source_host` as `ip` type with `ignore_malformed`, so an
+  invalid address drops only that field (listed in the document's `_ignored`)
+  instead of rejecting the whole security event. The template applies to
+  indices created after an install or upgrade, i.e. from the next daily index.
 - Maps `geoip.location` as `geo_point` for map visualizations
 - Maps security fields (attack_type, violations, etc.) as `keyword` for
   aggregations
@@ -199,6 +206,18 @@ helm install woe-ui oci://docker.io/f5networks/woe-internal-ui-helm \
 
 Go to Settings > Server Configuration in the UI, enter the Elasticsearch URL,
 and click Apply Changes.
+
+## Testing
+
+```sh
+ruby tests/source_host_test.rb   # source_host normalisation (runs the code in logstash-waf.conf)
+tests/e2e.sh                     # Logstash + Elasticsearch 8.17.8 in Docker; needs jq
+```
+
+`tests/e2e.sh` sends WAF syslog events (single and multi-hop `X-Forwarded-For`,
+IPv6, invalid addresses) through the chart's pipeline and index template and
+checks each is indexed and queryable by `support_id`. Set `PIPELINE=` and
+`TEMPLATE=` to run it against other versions of those files.
 
 ## Uninstall
 
