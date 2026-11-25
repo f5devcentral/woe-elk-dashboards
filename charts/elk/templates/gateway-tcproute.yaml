@@ -1,6 +1,11 @@
 {{- $syslog := .Values.gateway.syslog | default dict }}
 {{- if and .Values.gateway.enabled $syslog.enabled }}
+{{- /* Older Gateway API CRDs serve TCPRoute only as v1alpha2. */}}
+{{- if .Capabilities.APIVersions.Has "gateway.networking.k8s.io/v1/TCPRoute" }}
+apiVersion: gateway.networking.k8s.io/v1
+{{- else }}
 apiVersion: gateway.networking.k8s.io/v1alpha2
+{{- end }}
 kind: TCPRoute
 metadata:
   name: {{ include "elk.fullname" . }}-syslog

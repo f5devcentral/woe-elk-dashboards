@@ -27,6 +27,13 @@ jobs:
           b=$(helm template t charts/elk --set logstash.pipeline=changed | grep 'checksum/config:')
           test -n "$a" && test "$a" != "$b"
 
+      - name: TCPRoute uses Gateway API v1 when served
+        run: |
+          helm template t charts/elk --set gateway.enabled=true --api-versions gateway.networking.k8s.io/v1/TCPRoute \
+            | grep -B1 '^kind: TCPRoute' | grep -qx 'apiVersion: gateway.networking.k8s.io/v1'
+          helm template t charts/elk --set gateway.enabled=true \
+            | grep -B1 '^kind: TCPRoute' | grep -qx 'apiVersion: gateway.networking.k8s.io/v1alpha2'
+
       - name: Unit tests
         run: ruby tests/source_host_test.rb
 
