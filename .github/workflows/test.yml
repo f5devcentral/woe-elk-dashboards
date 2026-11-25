@@ -9,6 +9,9 @@ on:
 jobs:
   test:
     runs-on: ubuntu-latest
+    env:
+      # Helm's built-in default is below the chart's kubeVersion minimum.
+      KUBE_VERSION: v1.35.0
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -23,8 +26,8 @@ jobs:
 
       - name: Pod restarts on config change
         run: |
-          a=$(helm template t charts/elk | grep 'checksum/config:')
-          b=$(helm template t charts/elk --set logstash.pipeline=changed | grep 'checksum/config:')
+          a=$(helm template t charts/elk --kube-version "$KUBE_VERSION" | grep 'checksum/config:')
+          b=$(helm template t charts/elk --kube-version "$KUBE_VERSION" --set logstash.pipeline=changed | grep 'checksum/config:')
           test -n "$a" && test "$a" != "$b"
 
       - name: Minimum Kubernetes version
@@ -40,9 +43,10 @@ jobs:
 
       - name: TCPRoute uses Gateway API v1 when served
         run: |
-          helm template t charts/elk --set gateway.enabled=true --api-versions gateway.networking.k8s.io/v1/TCPRoute \
+          helm template t charts/elk --kube-version "$KUBE_VERSION" --set gateway.enabled=true \
+            --api-versions gateway.networking.k8s.io/v1/TCPRoute \
             | grep -B1 '^kind: TCPRoute' | grep -qx 'apiVersion: gateway.networking.k8s.io/v1'
-          helm template t charts/elk --set gateway.enabled=true \
+          helm template t charts/elk --kube-version "$KUBE_VERSION" --set gateway.enabled=true \
             | grep -B1 '^kind: TCPRoute' | grep -qx 'apiVersion: gateway.networking.k8s.io/v1alpha2'
 
       - name: Unit tests

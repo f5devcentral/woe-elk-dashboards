@@ -27,6 +27,10 @@ and adds WAF-specific configuration via ConfigMaps:
 - At least 2 GiB of allocatable memory on the target node
 - Privileged init containers must be allowed (required for `vm.max_map_count` sysctl)
 
+`helm template` without a cluster checks the chart against Helm's built-in
+Kubernetes version, which is older than 1.35, so pass the target version:
+`helm template elk woe-elk/elk --kube-version v1.35.0`.
+
 ## Quick Start
 
 ```sh
