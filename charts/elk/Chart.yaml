@@ -1,8 +1,8 @@
 apiVersion: v2
 name: elk
-version: 0.2.10
+version: 0.2.11
 appVersion: "8.17.8"
 description: All-in-one ELK stack (Elasticsearch + Logstash + Kibana) for WAF security log aggregation on PLM clusters
 type: application
 home: https://www.f5.com/
-kubeVersion: ">= 1.25.0"
+kubeVersion: ">= 1.25.0-0"
