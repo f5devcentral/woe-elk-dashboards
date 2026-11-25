@@ -92,7 +92,7 @@ gateway:
     listenerName: "waf-syslog"
     listenerPort: 5144
   kubectl:
-    image: "registry.k8s.io/kubectl:v1.32.4"
+    image: "registry.k8s.io/kubectl:v1.36.6"
 
 ## Persistence — ELK data storage
 ## @param persistence.enabled enable PersistentVolumeClaim for ES data
