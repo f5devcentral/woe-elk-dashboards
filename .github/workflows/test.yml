@@ -27,6 +27,17 @@ jobs:
           b=$(helm template t charts/elk --set logstash.pipeline=changed | grep 'checksum/config:')
           test -n "$a" && test "$a" != "$b"
 
+      - name: Minimum Kubernetes version
+        run: |
+          for v in v1.35.0 v1.35.9-eks-91f89a9 v1.36.1-gke.1000; do
+            helm template t charts/elk --kube-version "$v" > /dev/null
+          done
+          for v in v1.34.9 v1.34.2-eks-abc v1.25.0; do
+            if helm template t charts/elk --kube-version "$v" > /dev/null 2>&1; then
+              echo "kubeVersion accepted $v"; exit 1
+            fi
+          done
+
       - name: TCPRoute uses Gateway API v1 when served
         run: |
           helm template t charts/elk --set gateway.enabled=true --api-versions gateway.networking.k8s.io/v1/TCPRoute \

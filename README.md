@@ -22,7 +22,7 @@ and adds WAF-specific configuration via ConfigMaps:
 
 ## Prerequisites
 
-- Kubernetes 1.25+
+- Kubernetes 1.35+
 - Helm 3.8+
 - At least 2 GiB of allocatable memory on the target node
 - Privileged init containers must be allowed (required for `vm.max_map_count` sysctl)
